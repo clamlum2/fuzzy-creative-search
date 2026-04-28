@@ -7,11 +7,10 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ServerboundSetCreativeModeSlotPacket;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import org.lwjgl.glfw.GLFW;
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
 import net.fabricmc.loader.api.FabricLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -30,7 +29,7 @@ public class FuzzySearchScreen extends Screen {
     private static final int PADDING       = 4;
     private static final int MAX_RESULTS   = 6;
 
-    private static Map<String, Integer> selectionCounts = new HashMap<>();
+    private static final Map<String, Integer> selectionCounts = new HashMap<>();
     private static final Path COUNTS_PATH = FabricLoader.getInstance()
             .getConfigDir().resolve("fuzzycreativesearch_counts.json");
 
@@ -114,8 +113,22 @@ public class FuzzySearchScreen extends Screen {
 
     @Override
     public boolean keyPressed(KeyEvent event) {
-        if (event.isEscape() || event.key() == GLFW.GLFW_KEY_BACKSLASH) {
+        if (event.isEscape()) {
             onClose();
+            return true;
+        }
+        if (event.key() == GLFW.GLFW_KEY_ENTER || event.key() == GLFW.GLFW_KEY_BACKSLASH) {
+            if (searchBox.getValue().isEmpty() || filteredItems.isEmpty()) {
+                onClose();
+            } else {
+                Item selected = filteredItems.get(selectedIndex);
+                saveCount(selected);
+                ItemStack stack = new ItemStack(selected);
+                int slot = getTargetSlot();
+                minecraft.player.connection.send(new ServerboundSetCreativeModeSlotPacket(slot, stack));
+                minecraft.player.getInventory().setItem(slot - 36, stack);
+                onClose();
+            }
             return true;
         }
         if (event.key() == GLFW.GLFW_KEY_DOWN) {
@@ -124,13 +137,6 @@ public class FuzzySearchScreen extends Screen {
         }
         if (event.key() == GLFW.GLFW_KEY_UP) {
             selectedIndex = Math.max(selectedIndex - 1, 0);
-            return true;
-        }
-        if (event.key() == GLFW.GLFW_KEY_ENTER && !filteredItems.isEmpty()) {
-            Item selected = filteredItems.get(selectedIndex);
-            saveCount(selected);
-            minecraft.player.addItem(new ItemStack(selected));
-            onClose();
             return true;
         }
         return super.keyPressed(event);
@@ -166,65 +172,22 @@ public class FuzzySearchScreen extends Screen {
         return true;
     }
 
-    private static boolean fuzzyMatch(String query, String target) {
-        int qi = 0;
-        for (int ti = 0; ti < target.length() && qi < query.length(); ti++) {
-            if (query.charAt(qi) == target.charAt(ti)) qi++;
-        }
-        return qi == query.length();
-    }
-
-    private static int fuzzyScore(String query, String target) {
-        int score = 0;
-        int qi = 0;
-        int lastMatch = -1;
-        for (int ti = 0; ti < target.length() && qi < query.length(); ti++) {
-            if (query.charAt(qi) == target.charAt(ti)) {
-                if (lastMatch == ti - 1) score += 10;
-                if (ti == 0) score += 5;
-                if (ti > 0 && target.charAt(ti - 1) == ' ') score += 5;
-                lastMatch = ti;
-                qi++;
-            }
-        }
-        if (qi != query.length()) return -1;
-        score += (int) ((float) query.length() / target.length() * 20);
-        score += query.length() * 3;
-        return score;
-    }
-
-    private static boolean fuzzyMatchWords(String query, String target) {
-        String[] queryWords = query.split("\\s+");
-        String[] targetWords = target.split("\\s+");
-        for (String qWord : queryWords) {
-            boolean anyMatch = false;
-            for (String tWord : targetWords) {
-                if (fuzzyMatch(qWord, tWord)) {
-                    anyMatch = true;
-                    break;
-                }
-            }
-            if (!anyMatch) return false;
-        }
-        return true;
-    }
-
-    static void loadCounts() {
-        try {
-            if (Files.exists(COUNTS_PATH)) {
-                String json = Files.readString(COUNTS_PATH);
-                selectionCounts = new Gson().fromJson(json, new TypeToken<Map<String, Integer>>(){}.getType());
-            }
-        } catch (Exception e) {
-            selectionCounts = new HashMap<>();
-        }
-    }
-
     private static void saveCount(Item item) {
         String id = BuiltInRegistries.ITEM.getKey(item).toString();
         selectionCounts.merge(id, 1, Integer::sum);
         try {
             Files.writeString(COUNTS_PATH, new GsonBuilder().setPrettyPrinting().create().toJson(selectionCounts));
         } catch (Exception ignored) {}
+    }
+
+    private int getTargetSlot() {
+        assert minecraft.player != null;
+        var inventory = minecraft.player.getInventory();
+        for (int i = 0; i < 9; i++) {
+            if (inventory.getItem(i).isEmpty()) {
+                return i + 36;
+            }
+        }
+        return inventory.getSelectedSlot() + 36;
     }
 }
