@@ -126,6 +126,7 @@ public class FuzzySearchScreen extends Screen {
                 int slot = getTargetSlot();
                 minecraft.player.connection.send(new ServerboundSetCreativeModeSlotPacket(slot, stack));
                 minecraft.player.getInventory().setItem(slot - 36, stack);
+                minecraft.player.getInventory().setSelectedSlot(slot - 36);
                 onClose();
             }
             return true;
