@@ -59,7 +59,6 @@ public class FuzzySearchScreen extends Screen {
                 SEARCH_HEIGHT,
                 Component.literal("Search...")
         );
-        searchBox.setHint(Component.literal("Search items..."));
         searchBox.setMaxLength(64);
         searchBox.setResponder(query -> {
             String q = query.toLowerCase();
