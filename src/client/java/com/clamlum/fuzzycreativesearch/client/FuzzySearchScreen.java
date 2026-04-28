@@ -116,7 +116,7 @@ public class FuzzySearchScreen extends Screen {
             onClose();
             return true;
         }
-        if (event.key() == GLFW.GLFW_KEY_ENTER || event.key() == GLFW.GLFW_KEY_BACKSLASH) {
+        if (event.key() == GLFW.GLFW_KEY_ENTER || FuzzyCreativeSearchClient.openSearchKey.matches(event)) {
             if (searchBox.getValue().isEmpty() || filteredItems.isEmpty()) {
                 onClose();
             } else {
