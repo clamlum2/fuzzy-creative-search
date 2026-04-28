@@ -21,8 +21,7 @@ public class FuzzyCreativeSearchClient implements ClientModInitializer {
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			if (openSearchKey.consumeClick()
 					&& client.screen == null
-					&& client.player != null
-					&& client.player.isCreative()) {
+					&& client.player != null) {
 				client.setScreen(new FuzzySearchScreen());
 			}
 		});

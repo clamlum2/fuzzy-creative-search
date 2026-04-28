@@ -8,6 +8,7 @@ import net.minecraft.client.input.KeyEvent;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ServerboundSetCreativeModeSlotPacket;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import org.lwjgl.glfw.GLFW;
@@ -122,12 +123,20 @@ public class FuzzySearchScreen extends Screen {
             } else {
                 Item selected = filteredItems.get(selectedIndex);
                 saveCount(selected);
-                ItemStack stack = new ItemStack(selected);
-                int slot = getTargetSlot();
-                minecraft.player.connection.send(new ServerboundSetCreativeModeSlotPacket(slot, stack));
-                minecraft.player.getInventory().setItem(slot - 36, stack);
-                minecraft.player.getInventory().setSelectedSlot(slot - 36);
-                onClose();
+                assert minecraft.player != null;
+                if (minecraft.player.isCreative()) {
+                    ItemStack stack = new ItemStack(selected);
+                    int slot = getTargetSlot();
+                    minecraft.player.connection.send(new ServerboundSetCreativeModeSlotPacket(slot, stack));
+                    minecraft.player.getInventory().setItem(slot - 36, stack);
+                    minecraft.player.getInventory().setSelectedSlot(slot - 36);
+                    onClose();
+                }
+                else {
+                    boolean ok = swapSurvival(selected);
+                    // todo - add failure feedback
+                    onClose();
+                }
             }
             return true;
         }
@@ -189,5 +198,80 @@ public class FuzzySearchScreen extends Screen {
             }
         }
         return inventory.getSelectedSlot() + 36;
+    }
+
+    private boolean swapSurvival(Item item) {
+        if (minecraft.player == null || minecraft.gameMode == null) return false;
+
+        var player = minecraft.player;
+        var inv = player.getInventory();
+
+        int invIndex = -1;
+        for (int i = 0; i < inv.getContainerSize(); i++) {
+            ItemStack s = inv.getItem(i);
+            if (!s.isEmpty() && s.getItem() == item) {
+                invIndex = i;
+                break;
+            }
+        }
+        if (invIndex == -1) return false;
+
+        if (invIndex < 9) {
+            inv.setSelectedSlot(invIndex);
+            return true;
+        }
+
+        int targetHotbar = inv.getSelectedSlot();
+
+        int fromMenuSlotId = findMenuSlotIdForInventoryIndex(invIndex);
+        int toMenuSlotId = findMenuSlotIdForInventoryIndex(targetHotbar);
+        System.out.println("from=" + fromMenuSlotId + " to=" + toMenuSlotId);
+        if (fromMenuSlotId == -1 || toMenuSlotId == -1) return false;
+
+        int containerId = player.containerMenu.containerId;
+
+        click(containerId, fromMenuSlotId);
+        click(containerId, toMenuSlotId);
+        click(containerId, fromMenuSlotId);
+
+        inv.setSelectedSlot(targetHotbar);
+        return true;
+    }
+
+    private void click(int containerId, int slotId) {
+        assert minecraft.player != null;
+        assert minecraft.gameMode != null;
+        minecraft.gameMode.handleContainerInput(
+                containerId,
+                slotId,
+                0,
+                ContainerInput.PICKUP,
+                minecraft.player
+        );
+    }
+
+    private int findMenuSlotIdForInventoryIndex(int inventoryIndex) {
+        assert minecraft.player != null;
+        var menu = minecraft.player.containerMenu;
+        var inv = minecraft.player.getInventory();
+
+        for (int menuSlotId = 0; menuSlotId < menu.slots.size(); menuSlotId++) {
+            var slot = menu.slots.get(menuSlotId);
+            if (slot.container == inv && slot.index == inventoryIndex) {
+                return menuSlotId;
+            }
+        }
+
+        if (inventoryIndex < 9) {
+            int hotbarIndex = inventoryIndex + 36;
+            for (int menuSlotId = 0; menuSlotId < menu.slots.size(); menuSlotId++) {
+                var slot = menu.slots.get(menuSlotId);
+                if (slot.container == inv && slot.index == hotbarIndex) {
+                    return menuSlotId;
+                }
+            }
+        }
+
+        return -1;
     }
 }
