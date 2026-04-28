@@ -1,0 +1,230 @@
+package com.clamlum.fuzzycreativesearch.client;
+
+import com.google.gson.GsonBuilder;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import org.lwjgl.glfw.GLFW;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+import net.fabricmc.loader.api.FabricLoader;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+
+public class FuzzySearchScreen extends Screen {
+
+    private static final int PANEL_WIDTH   = 200;
+    private static final int PANEL_HEIGHT  = 100;
+    private static final int SEARCH_HEIGHT = 16;
+    private static final int PADDING       = 4;
+    private static final int MAX_RESULTS   = 6;
+
+    private static Map<String, Integer> selectionCounts = new HashMap<>();
+    private static final Path COUNTS_PATH = FabricLoader.getInstance()
+            .getConfigDir().resolve("fuzzycreativesearch_counts.json");
+
+    private List<Item> allItems;
+    private List<Item> filteredItems = new ArrayList<>();
+    private int selectedIndex = 0;
+
+    private EditBox searchBox;
+
+    public FuzzySearchScreen() {
+        super(Component.literal("Item Search"));
+    }
+
+    @Override
+    protected void init() {
+
+        allItems = BuiltInRegistries.ITEM.stream().toList();
+
+        int panelX = (width  - PANEL_WIDTH)  / 2;
+        int panelY = (height - PANEL_HEIGHT) / 2;
+
+        searchBox = new EditBox(
+                font,
+                panelX + PADDING,
+                panelY + PADDING,
+                PANEL_WIDTH - PADDING * 2,
+                SEARCH_HEIGHT,
+                Component.literal("Search...")
+        );
+        searchBox.setHint(Component.literal("Search items..."));
+        searchBox.setMaxLength(64);
+        searchBox.setResponder(query -> {
+            String q = query.toLowerCase();
+
+            filteredItems = allItems.stream()
+                    .filter(item -> wordMatch(q, item.getName(new ItemStack(item)).getString().toLowerCase()))
+                    .sorted(Comparator.comparingInt(item -> {
+                        String id = BuiltInRegistries.ITEM.getKey(item).toString();
+                        String name = item.getName(new ItemStack(item)).getString().toLowerCase();
+                        int freq = selectionCounts.getOrDefault(id, 0);
+                        int prefixBonus = name.startsWith(q) ? 50 : 0;
+                        return -(freq * 10 + prefixBonus);
+                    }))
+                    .limit(MAX_RESULTS)
+                    .toList();
+
+            selectedIndex = 0;
+        });
+        addRenderableWidget(searchBox);
+        setInitialFocus(searchBox);
+
+        GLFW.glfwSetInputMode(
+                minecraft.getWindow().handle(),
+                GLFW.GLFW_CURSOR,
+                GLFW.GLFW_CURSOR_HIDDEN
+        );
+    }
+
+    @Override
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
+        int panelX = (width  - PANEL_WIDTH)  / 2;
+        int panelY = (height - PANEL_HEIGHT) / 2;
+
+        graphics.fillGradient(panelX, panelY, panelX + PANEL_WIDTH, panelY + PANEL_HEIGHT, 0xCC1A1A1A, 0xCC1A1A1A);
+
+        int dividerY = panelY + PADDING + SEARCH_HEIGHT + PADDING;
+        graphics.fillGradient(panelX + PADDING, dividerY, panelX + PANEL_WIDTH - PADDING, dividerY + 1, 0xFF444444, 0xFF444444);
+
+        int rowY = dividerY + 4;
+        for (int i = 0; i < filteredItems.size(); i++) {
+            if (i == selectedIndex) {
+                graphics.fillGradient(panelX, rowY - 1, panelX + PANEL_WIDTH, rowY + 10, 0x44FFFFFF, 0x44FFFFFF);
+            }
+            int color = (i == selectedIndex) ? 0xFFFFFFFF : 0xFFAAAAAA;
+            graphics.text(font, filteredItems.get(i).getName(new ItemStack(filteredItems.get(i))).getString(), panelX + PADDING, rowY, color);
+            rowY += 12;
+        }
+
+        super.extractRenderState(graphics, mouseX, mouseY, delta);
+    }
+
+    @Override
+    public boolean keyPressed(KeyEvent event) {
+        if (event.isEscape() || event.key() == GLFW.GLFW_KEY_BACKSLASH) {
+            onClose();
+            return true;
+        }
+        if (event.key() == GLFW.GLFW_KEY_DOWN) {
+            selectedIndex = Math.min(selectedIndex + 1, filteredItems.size() - 1);
+            return true;
+        }
+        if (event.key() == GLFW.GLFW_KEY_UP) {
+            selectedIndex = Math.max(selectedIndex - 1, 0);
+            return true;
+        }
+        if (event.key() == GLFW.GLFW_KEY_ENTER && !filteredItems.isEmpty()) {
+            Item selected = filteredItems.get(selectedIndex);
+            saveCount(selected);
+            minecraft.player.addItem(new ItemStack(selected));
+            onClose();
+            return true;
+        }
+        return super.keyPressed(event);
+    }
+
+    @Override
+    public boolean isPauseScreen() {
+        return false;
+    }
+
+    @Override
+    protected void extractBlurredBackground(GuiGraphicsExtractor graphics) {
+    }
+
+    @Override
+    protected void extractMenuBackground(GuiGraphicsExtractor graphics) {
+    }
+
+    @Override
+    public void removed() {
+        GLFW.glfwSetInputMode(
+                minecraft.getWindow().handle(),
+                GLFW.GLFW_CURSOR,
+                GLFW.GLFW_CURSOR_NORMAL
+        );
+    }
+
+    private static boolean wordMatch(String query, String target) {
+        String[] words = query.split("\\s+");
+        for (String word : words) {
+            if (!target.contains(word)) return false;
+        }
+        return true;
+    }
+
+    private static boolean fuzzyMatch(String query, String target) {
+        int qi = 0;
+        for (int ti = 0; ti < target.length() && qi < query.length(); ti++) {
+            if (query.charAt(qi) == target.charAt(ti)) qi++;
+        }
+        return qi == query.length();
+    }
+
+    private static int fuzzyScore(String query, String target) {
+        int score = 0;
+        int qi = 0;
+        int lastMatch = -1;
+        for (int ti = 0; ti < target.length() && qi < query.length(); ti++) {
+            if (query.charAt(qi) == target.charAt(ti)) {
+                if (lastMatch == ti - 1) score += 10;
+                if (ti == 0) score += 5;
+                if (ti > 0 && target.charAt(ti - 1) == ' ') score += 5;
+                lastMatch = ti;
+                qi++;
+            }
+        }
+        if (qi != query.length()) return -1;
+        score += (int) ((float) query.length() / target.length() * 20);
+        score += query.length() * 3;
+        return score;
+    }
+
+    private static boolean fuzzyMatchWords(String query, String target) {
+        String[] queryWords = query.split("\\s+");
+        String[] targetWords = target.split("\\s+");
+        for (String qWord : queryWords) {
+            boolean anyMatch = false;
+            for (String tWord : targetWords) {
+                if (fuzzyMatch(qWord, tWord)) {
+                    anyMatch = true;
+                    break;
+                }
+            }
+            if (!anyMatch) return false;
+        }
+        return true;
+    }
+
+    static void loadCounts() {
+        try {
+            if (Files.exists(COUNTS_PATH)) {
+                String json = Files.readString(COUNTS_PATH);
+                selectionCounts = new Gson().fromJson(json, new TypeToken<Map<String, Integer>>(){}.getType());
+            }
+        } catch (Exception e) {
+            selectionCounts = new HashMap<>();
+        }
+    }
+
+    private static void saveCount(Item item) {
+        String id = BuiltInRegistries.ITEM.getKey(item).toString();
+        selectionCounts.merge(id, 1, Integer::sum);
+        try {
+            Files.writeString(COUNTS_PATH, new GsonBuilder().setPrettyPrinting().create().toJson(selectionCounts));
+        } catch (Exception ignored) {}
+    }
+}
