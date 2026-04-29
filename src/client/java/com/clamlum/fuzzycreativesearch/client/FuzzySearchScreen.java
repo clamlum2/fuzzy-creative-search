@@ -19,7 +19,7 @@ import java.util.*;
 public class FuzzySearchScreen extends Screen {
 
     private static final int PANEL_WIDTH   = 200;
-    private static final int PANEL_HEIGHT  = 100;
+    private static final int PANEL_HEIGHT  = 95;
     private static final int SEARCH_HEIGHT = 16;
     private static final int PADDING       = 4;
     private static final int MAX_RESULTS   = 6;
@@ -101,7 +101,7 @@ public class FuzzySearchScreen extends Screen {
         int dividerY = panelY + PADDING + SEARCH_HEIGHT + PADDING;
         graphics.fillGradient(panelX + PADDING, dividerY, panelX + PANEL_WIDTH - PADDING, dividerY + 1, 0xFF444444, 0xFF444444);
 
-        int rowY = dividerY + 4;
+        int rowY = dividerY + 1;
         for (int i = 0; i < filteredItems.size(); i++) {
             if (i == selectedIndex) {
                 graphics.fillGradient(panelX, rowY - 1, panelX + PANEL_WIDTH, rowY + 10, 0x44FFFFFF, 0x44FFFFFF);
