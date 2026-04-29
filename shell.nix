@@ -13,6 +13,9 @@ pkgs.mkShell {
     libXcursor
     libXi
     libXxf86vm
+    openal
+    alsa-lib
+    libpulseaudio
   ];
 
   shellHook = ''
