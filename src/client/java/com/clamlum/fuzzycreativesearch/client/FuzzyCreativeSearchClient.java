@@ -6,6 +6,8 @@ import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.minecraft.client.KeyMapping;
 import org.lwjgl.glfw.GLFW;
 
+import static com.clamlum.fuzzycreativesearch.client.ItemSelectionHistory.load;
+
 public class FuzzyCreativeSearchClient implements ClientModInitializer {
 
 	public static KeyMapping openSearchKey;
@@ -17,6 +19,8 @@ public class FuzzyCreativeSearchClient implements ClientModInitializer {
 				GLFW.GLFW_KEY_ENTER,
 				KeyMapping.Category.MISC
 		));
+
+		load();
 
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			if (openSearchKey.consumeClick()
