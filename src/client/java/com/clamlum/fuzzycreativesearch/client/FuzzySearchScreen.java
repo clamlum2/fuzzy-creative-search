@@ -98,10 +98,7 @@ public class FuzzySearchScreen extends Screen {
 
         graphics.fillGradient(panelX, panelY, panelX + PANEL_WIDTH, panelY + PANEL_HEIGHT, 0xCC1A1A1A, 0xCC1A1A1A);
 
-        int dividerY = panelY + PADDING + SEARCH_HEIGHT + PADDING;
-        graphics.fillGradient(panelX + PADDING, dividerY, panelX + PANEL_WIDTH - PADDING, dividerY + 1, 0xFF444444, 0xFF444444);
-
-        int rowY = dividerY + 1;
+        int rowY = panelY + PADDING + SEARCH_HEIGHT + PADDING + 1;
         for (int i = 0; i < filteredItems.size(); i++) {
             if (i == selectedIndex) {
                 graphics.fillGradient(panelX, rowY - 1, panelX + PANEL_WIDTH, rowY + 10, 0x44FFFFFF, 0x44FFFFFF);
