@@ -128,6 +128,7 @@ public class FuzzySearchScreen extends Screen {
                 saveCount(selected);
                 ItemStack stack = new ItemStack(selected);
                 int slot = getTargetSlot();
+                assert minecraft.player != null;
                 minecraft.player.connection.send(new ServerboundSetCreativeModeSlotPacket(slot, stack));
                 minecraft.player.getInventory().setItem(slot - 36, stack);
                 minecraft.player.getInventory().setSelectedSlot(slot - 36);
@@ -235,9 +236,8 @@ public class FuzzySearchScreen extends Screen {
     }
 
     private static int wordScore(String a, String b) {
-        if (b.contains(a)) return 0;                 // substring match
-        int dist = levenshtein(a, b);                // typo tolerance
-        return dist;
+        if (b.contains(a)) return 0;
+        return levenshtein(a, b);
     }
 
     private static String normalize(String s) {
