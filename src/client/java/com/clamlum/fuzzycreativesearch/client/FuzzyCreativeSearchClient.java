@@ -14,7 +14,7 @@ public class FuzzyCreativeSearchClient implements ClientModInitializer {
 	public void onInitializeClient() {
 		openSearchKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
 				"key.itemsearch.open",
-				GLFW.GLFW_KEY_BACKSLASH,
+				GLFW.GLFW_KEY_ENTER,
 				KeyMapping.Category.MISC
 		));
 
