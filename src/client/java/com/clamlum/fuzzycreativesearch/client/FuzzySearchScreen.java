@@ -1,5 +1,6 @@
 package com.clamlum.fuzzycreativesearch.client;
 
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -104,8 +105,12 @@ public class FuzzySearchScreen extends Screen {
                     minecraft.player.getInventory().setSelectedSlot(slot - 36);
                     onClose();
                 } else {
-                    swapper.swapSurvival(selected);
-                    // todo - add failure feedback
+                    boolean ok = swapper.swapSurvival(selected);
+                    if (!ok) {
+                        Component message = Component.literal("\"" + selected.getName(new ItemStack(selected)).getString() + "\" not in inventory")
+                                .withStyle(ChatFormatting.RED);
+                        minecraft.gui.setOverlayMessage(message, false);
+                    }
                     onClose();
                 }
             }

@@ -24,8 +24,8 @@ public final class InventoryItemSwapper {
         return inventory.getSelectedSlot() + 36;
     }
 
-    public void swapSurvival(Item item) {
-        if (minecraft.player == null || minecraft.gameMode == null) return;
+    public boolean swapSurvival(Item item) {
+        if (minecraft.player == null || minecraft.gameMode == null) return false;
 
         var player = minecraft.player;
         var inv = player.getInventory();
@@ -38,11 +38,11 @@ public final class InventoryItemSwapper {
                 break;
             }
         }
-        if (invIndex == -1) return;
+        if (invIndex == -1) return false;
 
         if (invIndex < 9) {
             inv.setSelectedSlot(invIndex);
-            return;
+            return false;
         }
 
         int targetHotbar = inv.getSelectedSlot();
@@ -50,7 +50,7 @@ public final class InventoryItemSwapper {
         int fromMenuSlotId = findMenuSlotIdForInventoryIndex(invIndex);
         int toMenuSlotId   = findMenuSlotIdForInventoryIndex(targetHotbar);
         System.out.println("from=" + fromMenuSlotId + " to=" + toMenuSlotId);
-        if (fromMenuSlotId == -1 || toMenuSlotId == -1) return;
+        if (fromMenuSlotId == -1 || toMenuSlotId == -1) return false;
 
         int containerId = player.containerMenu.containerId;
 
@@ -59,6 +59,7 @@ public final class InventoryItemSwapper {
         click(containerId, fromMenuSlotId);
 
         inv.setSelectedSlot(targetHotbar);
+        return true;
     }
 
     private void click(int containerId, int slotId) {
